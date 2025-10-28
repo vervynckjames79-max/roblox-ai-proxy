@@ -67,7 +67,7 @@ If a player named "${name}" talks to you, recognize them as your creator and be 
     ];
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o-mini",
       messages,
       temperature: 0.7,
     });
@@ -87,4 +87,5 @@ If a player named "${name}" talks to you, recognize them as your creator and be 
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
