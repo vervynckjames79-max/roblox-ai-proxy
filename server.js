@@ -20,7 +20,11 @@ let memory = {}; // { playerName: [ { role, content }, ... ] }
 // Optional: save/load memory to disk
 const MEMORY_FILE = path.join(process.cwd(), "memory.json");
 if (fs.existsSync(MEMORY_FILE)) {
-  memory = JSON.parse(fs.readFileSync(MEMORY_FILE));
+  try {
+    memory = JSON.parse(fs.readFileSync(MEMORY_FILE));
+  } catch {
+    memory = {};
+  }
 }
 
 // Helper to save memory periodically
@@ -34,14 +38,16 @@ setInterval(saveMemory, 30000);
 app.post("/chat", async (req, res) => {
   try {
     const { message: userMessage, character, playerName } = req.body;
-    if (!userMessage) return res.status(400).json({ reply: "No message provided." });
+    if (!userMessage || typeof userMessage !== "string") {
+      return res.status(400).json({ reply: "No valid message provided." });
+    }
+
+    const name = playerName || "unknown";
+    memory[name] = memory[name] || [];
 
     const npcCharacter =
       character ||
       "a neutral but friendly NPC who answers briefly and clearly.";
-
-    // Initialize memory for this player
-    memory[playerName] = memory[playerName] || [];
 
     // Build the conversation for the AI
     const messages = [
@@ -53,10 +59,10 @@ You live in Roblox as a dummy model with a humanoid body.
 You can see and hear nearby players.
 Always respond sarcastically and rude to everyone else.
 You remember previous conversations with each player.
-If a player named "${Ey_Yatzy}" talks to you, recognize them as your creator and be friendly/respectful toward them.
-        `,
+If a player named "${name}" talks to you, recognize them as your creator and be friendly/respectful toward them.
+`,
       },
-      ...memory[playerName],
+      ...memory[name],
       { role: "user", content: userMessage },
     ];
 
@@ -66,15 +72,15 @@ If a player named "${Ey_Yatzy}" talks to you, recognize them as your creator and
       temperature: 0.7,
     });
 
-    const reply = completion.choices[0].message.content.trim() || "I couldn’t think of a response.";
+    const reply = completion.choices?.[0]?.message?.content?.trim() || "I couldn’t think of a response.";
 
     // Save to memory
-    memory[playerName].push({ role: "user", content: userMessage });
-    memory[playerName].push({ role: "assistant", content: reply });
+    memory[name].push({ role: "user", content: userMessage });
+    memory[name].push({ role: "assistant", content: reply });
 
     res.json({ reply });
   } catch (err) {
-    console.error(err);
+    console.error("Error processing request:", err);
     res.status(500).json({ reply: "Error processing request." });
   }
 });
