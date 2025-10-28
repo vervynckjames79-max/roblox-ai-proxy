@@ -1,48 +1,45 @@
-const express = require('express');
-require('dotenv').config();
-const bodyParser = require('body-parser');
-
-// Fix fetch import for CommonJS
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+import express from "express";
+import bodyParser from "body-parser";
+import cors from "cors";
+import OpenAI from "openai";
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-
-// Basic route for testing
-app.get('/', (req, res) => {
-  res.send('✅ Roblox AI Proxy is running.');
+// 🧩 Replace with your real OpenAI API key in Render’s environment settings
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.post('/chat', async (req, res) => {
-  const userMessage = req.body.message;
-  if (!userMessage) return res.json({ reply: "I got nothing..." });
-
+app.post("/chat", async (req, res) => {
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini", // lightweight, fast, great for NPCs
-        messages: [
-          { role: "system", content: "You are a friendly NPC inside Roblox. Keep replies short and casual." },
-          { role: "user", content: userMessage }
-        ],
-        temperature: 0.7
-      })
+    const body = req.body;
+    const userMessage = body.message;
+    const character =
+      body.character ||
+      "a neutral but friendly NPC who answers briefly and clearly.";
+
+    if (!userMessage) {
+      return res.status(400).json({ reply: "No message provided." });
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are ${character}. Respond in short, natural, conversational lines like in a game chat.`,
+        },
+        { role: "user", content: userMessage },
+      ],
     });
 
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || "I couldn't think of a response.";
+    const reply = completion.choices[0].message.content || "I couldn’t think of a response.";
     res.json({ reply });
-
   } catch (err) {
     console.error(err);
-    res.json({ reply: "I’m broken right now..." });
+    res.status(500).json({ reply: "Error processing request." });
   }
 });
 
